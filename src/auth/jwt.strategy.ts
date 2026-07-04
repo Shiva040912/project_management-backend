@@ -1,4 +1,3 @@
-// backend/src/auth/jwt.strategy.ts
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
 import { Injectable } from '@nestjs/common';
@@ -9,12 +8,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: 'SECRET_KEY_123', // Ithu dhaan key
+      secretOrKey: process.env.JWT_SECRET || 'project_management_secret',
     });
   }
 
   async validate(payload: any) {
-    // Ithu dhaan login-la irunthu varra token-ai decode panni kodukkum
-    return { userId: payload.sub, email: payload.email, role: payload.role };
+    return {
+      userId: payload.sub,
+      email: payload.email,
+      role: payload.role,
+    };
   }
 }
