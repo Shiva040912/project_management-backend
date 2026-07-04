@@ -1,7 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  ForbiddenException,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Project } from './project.schema'; // Unga entity path-ai check pannikonga
+import { Project } from './project.schema';
 import { CreateProjectDto } from './dto/create-project.dto';
 
 @Injectable()
@@ -10,46 +15,79 @@ export class ProjectsService {
     @InjectModel(Project.name) private projectModel: Model<Project>,
   ) {}
 
-  // 1. Role-based Project Listing (Admin vs Member)
-  // source: 3, 4
+  async create(createProjectDto: CreateProjectDto, user: any) {
+    if (user.role !== 'admin') {
+      throw new ForbiddenException('Only admin can create projects');
+    }
+
+    const newProject = new this.projectModel({
+      ...createProjectDto,
+      ownerId: new Types.ObjectId(user.userId),
+      members: [],
+      createdAt: new Date(),
+    });
+
+    return await newProject.save();
+  }
+
   async findAll(user: any) {
-    // Admin-a irundha, avan create panna projects-ai mattum kaattum
     if (user.role === 'admin') {
-      // string-ai ObjectId-ah matha Types.ObjectId use pannunga
       return await this.projectModel
-        .find({ ownerId: new Types.ObjectId(user.userId) })
+        .find({
+          $or: [
+            { ownerId: new Types.ObjectId(user.userId) },
+            { members: { $in: [user.email] } },
+          ],
+        })
         .exec();
     }
 
-    // Member-a irundha, avan email irukkura projects-ai mattum kaattum
     return await this.projectModel
       .find({ members: { $in: [user.email] } })
       .exec();
   }
 
-  // 2. Project Creation (ownerId-oda save pannum)
-  async create(createProjectDto: CreateProjectDto, user: any) {
-    const newProject = new this.projectModel({
-      ...createProjectDto,
-      ownerId: new Types.ObjectId(user.userId), // JWT-la irunthu varura userId
-      members: [], // Initial-ah empty list
-      createdAt: new Date(),
-    });
-    return await newProject.save();
-  }
-  async addMember(id: string, email: string) {
-    // Members array-la email-ai push panrom
+  async addMember(id: string, email: string, user: any) {
+    if (!email) {
+      throw new BadRequestException('Member email is required');
+    }
+
+    const project = await this.projectModel.findById(id);
+
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+
+    if (
+      user.role !== 'admin' ||
+      project.ownerId?.toString() !== user.userId
+    ) {
+      throw new ForbiddenException('Only project admin can add members');
+    }
+
     return await this.projectModel
       .findByIdAndUpdate(
         id,
-        { $addToSet: { members: email } }, // $addToSet dupliate aavadha thadukum
+        { $addToSet: { members: email } },
         { new: true },
       )
       .exec();
   }
 
-  // 3. Project Delete (Only Admin check - Controller-la or Service-la add pannikonga)
-  async delete(id: string) {
+  async delete(id: string, user: any) {
+    const project = await this.projectModel.findById(id);
+
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+
+    if (
+      user.role !== 'admin' ||
+      project.ownerId?.toString() !== user.userId
+    ) {
+      throw new ForbiddenException('Only project admin can delete project');
+    }
+
     return await this.projectModel.findByIdAndDelete(id).exec();
   }
 }

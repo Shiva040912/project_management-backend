@@ -9,7 +9,7 @@ import {
   Req,       // Itha add pannunga
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { AuthGuard } from '@nestjs/passport'; // Itha add pannunga
+
 import { JwtAuthGuard } from './jwt-auth.guard';
 
 @Controller('auth')

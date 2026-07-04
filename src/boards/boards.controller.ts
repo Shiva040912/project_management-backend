@@ -1,26 +1,34 @@
-import { Controller, Get, Post, Body, Param, Delete, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Delete,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { BoardsService } from './boards.service';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 
 @Controller('boards')
+@UseGuards(JwtAuthGuard)
 export class BoardsController {
   constructor(private readonly boardsService: BoardsService) {}
 
-  @UseGuards(JwtAuthGuard)
   @Post()
-  async create(@Body() body: { title: string; projectId: string }) {
-    return this.boardsService.create(body.title, body.projectId);
+  create(@Body() body: any, @Req() req: any) {
+    const projectId = body.projectId || body.project;
+    return this.boardsService.create(body.title, projectId, req.user);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Get(':projectId')
-  async findAllByProject(@Param('projectId') projectId: string) {
+  findAllByProject(@Param('projectId') projectId: string) {
     return this.boardsService.findAllByProject(projectId);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  async delete(@Param('id') id: string) {
-    return await this.boardsService.delete(id);
+  delete(@Param('id') id: string, @Req() req: any) {
+    return this.boardsService.delete(id, req.user);
   }
 }
